@@ -1,6 +1,7 @@
 Introduction
 ============
-
+This project is written in Micro-C++, an advanced version of C++ that supports concurrency by nature.
+Visit its father! - <a href="http://plg.uwaterloo.ca/~pabuhr/">Peter Allan Buhr</a>
 
 Usage
 =====
