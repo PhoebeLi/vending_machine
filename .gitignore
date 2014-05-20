@@ -1,0 +1,8 @@
+*.o
+*.d
+soda
+soda_64
+*.in
+*.out
+typescript
+

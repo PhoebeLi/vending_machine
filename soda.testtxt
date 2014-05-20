@@ -1,0 +1,282 @@
+SODA TEST DOCUMENTATION
+==================
+This assignment simulates a simple concession service using the objects and relationships.
+WATCola is renown for its famous line of healthy soda pop, which come in the dazzling array of flavours: Blues Black-Cherry, Classical Cream-Soda, Rock Root-Beer, and Jazz Lime. The company recently won the bid to provide soda to vending machines on campus. The vending machines are periodically restocked by a WATCola truck making deliveries from the local bottling plant.
+There are some Student whose responsibility is to periodically buy some of their favourite soda from a vending machine.
+When all of the students successfully bought all of their sodas, they finish and all the other tasks finish at which point 
+the program finishes.
+
+
+USER INTERFACE TESTING
+    There is no user interface to be tested, so the testing focuses
+    solely on the algorithm and synchronization for philosophers.
+
+
+
+ALGORITHM AND SYNCHRONIZATION TESTING
+
+program interface
+-----------------
+      soda [ config-file [ random-seed ] ]
+
+program interface testing output
+     1  Script started on Sat 05 Apr 2014 02:37:56 PM EDT
+     2  1%>ubuntu1204-004:~/cs343/cs343-A6> ./soda seed.txt
+     3  Error: file "seed.txt" is corrupt.
+     4  1%>ubuntu1204-004:~/cs343/cs343-A6> ./soda seed.txt soda.config
+     5  Usage: ./soda_64 [ config-file [ random-seed (> 0) ] ]
+     6  1%>ubuntu1204-004:~/cs343/cs343-A6> ./soda soda.config -3
+     7  Usage: ./soda_64 [ config-file [ random-seed (> 0) ] ]
+     8  1%>ubuntu1204-004:~/cs343/cs343-A6> ./soda student.h 5
+     9  Error: could not open input file "student.h"
+    10  1%>ubuntu1204-004:~/cs343/cs343-A6> exit
+    11  exit
+       
+    12  Script done on Sat 05 Apr 2014 02:39:29 PM EDT
+
+
+program interface testing analysis:
+  Our program behaviors as expected. Warning message was displayed for 
+  each of the following invalid situation:
+  1.invalid input file
+  2.random-seed number is not a integer
+  3.negative random-seed number
+  4. invalid number of inputs
+
+
+
+DeadLock test:
+--------------
+First we create a random config file generator:
+
+     1 #include <iostream>
+     2  #include <unistd.h>
+     3  #include <cstdlib>
+     4  using namespace std;
+       
+     5  class MPRNG {
+     6    public:
+     7      MPRNG( unsigned int seed = 1009 ) { srand( seed ); }// set seed
+     8      void seed( unsigned int seed ) { srand( seed ); } // set seed
+     9      unsigned int operator()() { return rand(); }  // [0,UINT_MAX]
+    10      unsigned int operator()( unsigned int u ) { return operator()() % (u + 1); } // [0,u]
+    11      unsigned int operator()( unsigned int l, unsigned int u ) { return operator()( u - l ) + l; } // [l,u]
+    12  };
+       
+       
+    13  MPRNG RAND;
+       
+       
+    14  class output
+    15  {
+    16  public:
+    17    output(){
+    18        cout << "SodaCost\t"<<                RAND(1,5)   <<endl ;
+    19        cout << "NumStudents\t"<<             RAND(1,30)   <<endl ;
+    20        cout << "MaxPurchases\t"<<            RAND(1,30)   <<endl ;
+    21        cout << "NumVendingMachines\t"<<      RAND(1,30)   <<endl ;
+    22        cout << "MaxStockPerFlavour\t"<<      RAND(1,30)   <<endl ;
+    23        cout << "MaxShippedPerFlavour\t"<<    RAND(1,30)   <<endl ;
+    24        cout << "TimeBetweenShipments\t"<<    RAND(1,10)   <<endl ;
+    25        cout << "ParentalDelay\t"<<           RAND(1,10)   <<endl ;
+    26        cout << "NumCouriers\t"<<             RAND(1,30)   <<endl ;
+    27    }
+    28    ~output(){};
+       
+    29  };
+       
+       
+       
+    30  int main(int argc, char **argv)
+    31  {
+    32    RAND.seed(getpid());
+    33    delete new output();
+       
+    34  }
+
+
+
+After creating config file binary we wrote a test bash script for running our binary 50000 times:
+
+    1 #!/bin/bash
+       
+     2  numtests=5000
+     3  u++ main.cc &> /dev/null
+     4  make &> /dev/null
+     5  echo "test started... will run ${numtests} tests"
+     6  counter=0
+     7  g++ fileGenerator.cc &> /dev/null
+     8  for (( k = 1; k < ${numtests}; k++ )); do
+     9      ./a.out > currentConfigFile.txt
+    10      ./soda currentConfigFile.txt ${k} &> result.txt
+    11      if [ $? -ne 0 ]; then
+    12          echo "test failed with seed ${k}"
+    13          exit 1;
+    14      fi
+    15      echo "current seed: ${k}" > seed.txt
+    16      x=`egrep -ci "***********************" result.txt`;
+    17      y=`egrep -ci "assertion" result.txt`;
+    18      z=`egrep -ci "deadlock" result.txt`;
+    19      m=`egrep -ci "warning" result.txt`;
+    20      n=`egrep -ci "error" result.txt`;
+    21      if [ ${x} -eq 0 ] || [ ${y} -ne 0 ] || [ ${z} -ne 0 ] || [ ${m} -ne 0 ] || [ ${n} -ne 0 ]; then
+    22          echo "test failed with seed ${k}"
+    23          exit 1;
+    24      fi
+    25      counter=$((${counter}+1))
+    26      if [ $((${counter} % 100)) -eq 0 ]; then
+    27          echo "${counter} tests run"
+    28      fi  
+    29  done
+    30  echo "all tests passed!"
+    31  make clean &> /dev/null
+    32  exit 0
+
+
+Output of the bash script:
+    1 Script started on Sat Apr  5 12:44:54 2014
+     2  1%>ubuntu1204-006:~/cs343/cs343-A6> time ./soda.sh
+     3  test started... will run 5000 tests
+     4  1000 tests run
+     5  2000 tests run
+     6  3000 tests run
+     7  4000 tests run
+     8  all tests passed!
+     9  453.568u 74.720s 10:24.52 84.5% 0+0k 1901184+3062880io 0pf+0w
+    10  1%>ubuntu1204-006:~/cs343/cs343-A6> exit
+    11  exit
+       
+    12  Script done on Sat Apr  5 12:55:52 2014
+
+
+Since the test ends successfully and the execution time is within a reasonable range, it can be
+proved that there is no deadlock occurring during the test, and also, there are no deadlocks, assertion
+failures, runtime error or runtime warnings. Thus the synchronization is handled properly at least with 
+reasonable efficiency.
+From our test result we can conclude that our binary doesn't have deadlock with in those 50000 tests.
+
+
+Output analysis:
+This is our output of our program with config file soda.config and a random-generated seed. 
+
+     1  Script started on Sat 05 Apr 2014 02:58:51 PM EDT
+     2  1%>ubuntu1204-004:~/cs343/cs343-A6> ./soda
+     3  Parent  WATOff  Names   Truck   Plant   Stud0   Stud1   Mach0   Mach1   Mach2   Cour0
+     4  ******* ******* ******* ******* ******* ******* ******* ******* ******* ******* *******
+     5  S       S       S                                                               S       
+     6  D0,3            R0                                      S2                              
+     7  D1,2            R1                                              S2                      
+     8  D0,3    C0,5    R2      S       S       S1,3                            S2              
+     9          W       N0,0                    V0      S0,3                            t0,5    
+    10  D0,1    C1,5    N1,1            G6              V1                              T0,5    
+    11  D1,2    W                                                                       t1,5    
+    12  D1,2            N0,1                    V1                                      T1,5    
+    13  D1,1                    P6                                                              
+    14                          d0,6                                                            
+    15                          U0,9                                                            
+    16  D0,1            N1,2    D0,0    P               V2      r                               
+    17  D1,2                            G7                      R                               
+    18  D1,1                                                                                    
+    19  D1,3            N0,2                    V2                                              
+    20  D1,3                    P7                                                              
+    21                          d0,7                                                            
+    22                          U0,5                                                            
+    23  D0,2            N1,0    D0,0    P               V0      r                               
+    24  D1,1                            G5                      R                               
+    25  D0,1            N0,0                    V0                                              
+    26  D0,2                                            B3      B0,2                            
+    27  D1,3                    P5                                                              
+    28                          d0,5                                                            
+    29                          U0,2                                                            
+    30  D0,1                    D0,1    P                       r                               
+    31                          d1,1                                                            
+    32                          U1,4                                                            
+    33  D0,1                    D1,0    G7                      R       r                       
+    34  D0,2                                    B3              B1,3    R                       
+    35  D0,3                                            B1      B0,3                            
+    36  D1,3                                    B1              B1,2                            
+    37  D1,2                                                                                    
+    38  D1,3    T1,7            P7                                                              
+    39          W               d0,7                                                    t1,7    
+    40  D1,3                    U0,1    P                                               T1,7    
+    41  D1,2    C1,5            D0,1                    L       r                               
+    42                          d1,1                                                            
+    43                          U1,3                                                            
+    44          W               D1,0                                                    t1,5    
+    45  D1,3    C1,5                    G5              L       R       r               T1,5    
+    46                          P5                                      R                       
+    47                          d0,5                                                            
+    48          W               D0,5                                                    t1,5    
+    49  D0,3                            P                       r                       T1,5    
+    50  D0,3                            G6                                                      
+    51  D0,1                    d1,5                                                            
+    52                          U1,3                                                            
+    53  D0,3    T0,7            D1,0                            R       r                       
+    54  D1,1    W                                                                       t0,7    
+    55  D0,3    C0,5                            L       B3      B0,4    R               T0,7    
+    56          W                                                                       t0,5    
+    57  D0,2                                    B3              B1,4                    T0,5    
+    58  D1,3                                                                                    
+    59  ...     ...     ...     ...     ...     F       ...     ...     ...     ...     ...     
+    60  ...     ...     ...     ...     ...     ...     F       ...     ...     ...     ...     
+    61  D0,2                                                                                    
+    62  D0,2                                                                                    
+    63  ...     ...     ...     F       ...     ...     ...     ...     ...     ...     ...     
+    64  ...     ...     ...     ...     F       ...     ...     ...     ...     ...     ...     
+    65  D1,3                                                                                    
+    66  ...     ...     ...     ...     ...     ...     ...     F       ...     ...     ...     
+    67  D1,1                                                                                    
+    68  ...     ...     ...     ...     ...     ...     ...     ...     F       ...     ...     
+    69  D0,2                                                                                    
+    70  ...     ...     ...     ...     ...     ...     ...     ...     ...     F       ...     
+    71  D1,3                                                                                    
+    72  ...     ...     F       ...     ...     ...     ...     ...     ...     ...     ...     
+    73  D1,3                                                                                    
+    74  D0,3                                                                                    
+    75  ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     F       
+    76  ...     F       ...     ...     ...     ...     ...     ...     ...     ...     ...     
+    77  D0,3                                                                                    
+    78  F       ...     ...     ...     ...     ...     ...     ...     ...     ...     ...     
+    79  ***********************
+    80  1%>ubuntu1204-004:~/cs343/cs343-A6> exit
+    81  exit
+       
+    82  Script done on Sat 05 Apr 2014 02:59:04 PM EDT
+
+
+
+Output analysis:
+----------------
+  Vending machine 1: On line 13-58, We can see that when a vending machine was restocking,
+  no student was able to buy anything from that machine until it finished restocking.
+  
+  Students 0 was buying drink form V0 and it was out oh his favourite flavour (Line 12-15), so
+  it moved to vending machine 1. Since Vending machine 1 was out of stock too,the student moved 
+  to V2 and lastly back to V0. Which is the correct behavior. Same for student 1. 
+
+  NameServer was also assigning same students in a Round-Robin fashion. The name server cycled 
+  through the vending machines separately for each student starting from the initial position via 
+  modulo incrementing to ensure a student has a chance to visit every machine.We can notice it 
+  from line 9-25 where the NameServer is assigning student to V0 -> V1 -> V2 -> V0 and assign student
+  1 to V1 -> V2 -> V0
+
+  Parent is performing deposit with some delay, it is shutdown correctly when program finished and 
+  depositing money in a randomized fashion.
+  
+  WatCard office is creating job one after another without waiting for last job to finish the transfer.
+  Because create function returns a future.
+
+  The truck delivery pattern match the given binary's pattern.
+
+  The Bottling Plant's production pattern match the given binary's pattern.
+
+  Courier is pulling off one job from jobs queue at a time and it is only pull the job when the last 
+  job is finished.
+
+
+
+In Conclusion:
+--------------
+  Since there are no deadlocks, assertion failures, runtime error and runtime warnings, synchronization is 
+  guaranteed. Since the output follow the given assignment's logic, we can say the solution is implemented 
+  correctly and with reasonable efficiency.
